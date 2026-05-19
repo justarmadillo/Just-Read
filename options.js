@@ -91,6 +91,8 @@ function getDataFromStorage(storage) {
       scrollbar.checked = storage[key];
     } else if (key === "remove-orig-content") {
       removeOrig.checked = storage[key] !== false;
+    } else if (key === "backup") {
+      backup.checked = storage[key];
     } else if (key === "leave-pres") {
       leavePres.checked = storage[key];
     } else if (key === "addOrigURL") {
@@ -687,6 +689,7 @@ function addEventListeners() {
   };
 
   const removeOrig = document.getElementById("removeOrig"),
+    backup = document.getElementById("backup"),
     leavePres = document.getElementById("leavePres"),
     addOrigURL = document.getElementById("addOrigURL"),
     addTimeEstimate = document.getElementById("addTimeEstimate"),
@@ -694,6 +697,9 @@ function addEventListeners() {
 
   removeOrig.onchange = function () {
     chrome.storage.sync.set({ "remove-orig-content": this.checked });
+  };
+  backup.onchange = function () {
+    chrome.storage.sync.set({ backup: this.checked });
   };
   leavePres.onchange = function () {
     chrome.storage.sync.set({ "leave-pres": this.checked });

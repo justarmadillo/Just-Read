@@ -296,6 +296,7 @@ function actionWithStack(actionName, elem) {
     undoBtn.classList.add("shown");
   }
 
+  updateSavedVersion();
   // REMOVE WHEN SWITCHING TO CSS SCROLL ANIMATION FOR SCROLLBAR
   getMeasurements(); // Update the scrollbar sizing
 }
@@ -312,6 +313,8 @@ function popStack() {
     actionObj.elem.innerText = actionObj.text;
   }
 
+  updateSavedVersion();
+
   // If empty, hide undo button
   if (stack.length === 0) {
     undoBtn.classList.remove("shown");
@@ -319,6 +322,30 @@ function popStack() {
 
   // REMOVE WHEN SWITCHING TO CSS SCROLL ANIMATION FOR SCROLLBAR
   getMeasurements(); // Update the scrollbar sizing
+}
+
+function updateSavedVersion() {
+  if (chromeStorage["backup"]) {
+    const data = {
+      url: window.location.href,
+      content: DOMPurify.sanitize(
+        simpleArticleIframe.querySelector(".content-container").innerHTML
+      ),
+    };
+
+    if (
+      simpleArticleIframe.querySelector(".simple-comments").innerHTML !== ""
+    ) {
+      data.savedComments = DOMPurify.sanitize(
+        simpleArticleIframe.querySelector(".simple-comments").innerHTML
+      );
+      data.savedCompactComments = DOMPurify.sanitize(
+        simpleArticleIframe.querySelector(".simple-compact-comments").innerHTML
+      );
+    }
+
+    chrome.storage.local.set({ JRSavedPage: JSON.stringify(data) });
+  }
 }
 
 /////////////////////////////////////
@@ -1074,6 +1101,10 @@ function addArticleMeta() {
   date.setAttribute("contenteditable", true);
   author.setAttribute("contenteditable", true);
   title.setAttribute("contenteditable", true);
+
+  [date, author, title].forEach((el) =>
+    el.addEventListener("input", () => updateSavedVersion())
+  );
 
   return metaContainer;
 }
@@ -1934,6 +1965,7 @@ function initHighlighter() {
       elem.id = "jr-" + Date.now();
       hasSavedLink = false;
       shareDropdown.classList.remove("active");
+      setTimeout(() => updateSavedVersion(), 10);
     },
   };
 
@@ -2204,6 +2236,7 @@ function toggleContentEditing() {
   if (is_already_editable) {
     content_container.setAttribute("contenteditable", false);
     content_container.onblur = false;
+    updateSavedVersion();
   } else {
     content_container.setAttribute("contenteditable", true);
     content_container.onblur = toggleContentEditing;
@@ -2218,6 +2251,7 @@ function deleteSelection() {
         sel.getRangeAt(i).deleteContents();
       }
       hideToolbar();
+      updateSavedVersion();
     }
   } else {
     addHighlighterNotification();
@@ -2578,6 +2612,8 @@ function placeComment() {
   parent.appendChild(comment);
   parent.appendChild(deleteBtn);
   parent.appendChild(backBtn);
+
+  updateSavedVersion();
 }
 
 function cancelComment(e, el) {
@@ -3244,7 +3280,44 @@ function getDomainSelectors() {
     }
   }
 
-  createSimplifiedOverlay();
+  if (chromeStorage["backup"]) {
+    chrome.storage.local.get("JRSavedPage", (data) => {
+      if (typeof data.JRSavedPage === "undefined") {
+        createSimplifiedOverlay();
+        return;
+      }
+
+      const lastSavedPage = JSON.parse(data.JRSavedPage);
+      let response;
+
+      if (lastSavedPage && window.location.href === lastSavedPage.url) {
+        if (lastSavedPage.savedComments) {
+          response = {
+            content: lastSavedPage.content,
+            savedComments: lastSavedPage.savedComments,
+            savedCompactComments: lastSavedPage.savedCompactComments,
+          };
+        } else {
+          response = { content: lastSavedPage.content };
+        }
+      }
+
+      if (response && response.content) {
+        let tempElem = document.createElement("div");
+        tempElem.innerHTML = DOMPurify.sanitize(response.content);
+        pageSelectedContainer = tempElem;
+
+        if (response.savedComments) {
+          savedComments = response.savedComments;
+          savedCompactComments = response.savedCompactComments;
+        }
+      }
+
+      createSimplifiedOverlay();
+    });
+  } else {
+    createSimplifiedOverlay();
+  }
 }
 
 function createSimplifiedOverlay() {
